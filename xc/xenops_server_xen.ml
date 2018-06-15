@@ -988,7 +988,7 @@ module VM = struct
         let _ = DB.update k (function
             | Some x ->
               debug "VM = %s; reloading stored domain-level configuration" vm.Vm.id;
-              Some x
+              Some VmExtra.{persistent = (DB.revision_of k x.VmExtra.persistent)}
             | None -> begin
               debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
                let persistent =
