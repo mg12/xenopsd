@@ -148,6 +148,22 @@ module DB = struct
       type key = string
       let key vm = [ vm ]
     end)
+
+  (* revise profile from qemu_trad to qemu_upstream_compat if persistent data has version 0 *)
+  (* but do not revise if persistent data has version > 0                                   *)
+  let maybe_revise_profile_qemu_trad vm persistent =
+      Device.Profile.{ persistent with VmExtra.profile =
+        persistent.VmExtra.profile |> function
+        | Some Qemu_trad when persistent.VmExtra.version = 0 ->
+          debug "vm %s: revised %s->%s" vm Name.qemu_trad Name.qemu_upstream_compat;
+          Some Qemu_upstream_compat
+        | x -> x
+      }
+
+  let revision_of vm persistent =
+    persistent
+    |> maybe_revise_profile_qemu_trad vm
+
 end
 
 (* These updates are local plugin updates, distinct from those that are
@@ -2063,7 +2079,7 @@ module VM = struct
       | _ -> persistent
     in
     let persistent = { persistent with VmExtra.profile = profile_of ~vm } in
-    persistent |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string |> fun state_new ->
+    persistent |> DB.revision_of k |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string |> fun state_new ->
       debug "vm %s: persisting metadata %s" k state_new;
       (if state_new <> state then debug "vm %s: different original metadata %s" k state)
     ;
